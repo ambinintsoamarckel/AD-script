@@ -1,3 +1,10 @@
+param (
+    [string]$u,
+    [string]$g,
+    [string]$ufile,
+    [string]$gfile
+)
+
 # Importe le module Active Directory
 Import-Module ActiveDirectory
 
@@ -24,13 +31,13 @@ function New-ADUserFromJSON {
         $securePassword = ConvertTo-SecureString $user.Password -AsPlainText -Force
 
         # Vérifier si l'utilisateur existe déjà
-        if (-not (Get-ADUser -Filter {SamAccountName -eq $user.SamAccountName} -ErrorAction SilentlyContinue)) {
+        if (-not (Get-ADUser -Filter "SamAccountName -eq '$($user.Name)'" -ErrorAction SilentlyContinue)) {
             New-ADUser -Name $user.Name `
                        -SamAccountName $user.SamAccountName `
                        -UserPrincipalName $user.UserPrincipalName `
                        -AccountPassword $securePassword `
                        -Enabled $true `
-                       -Path ($user.OU -or "OU=Users,DC=example,DC=com")
+
 
             Log-Message -Message "Utilisateur $($user.Name) créé avec succès." -Type "Info"
 
@@ -53,12 +60,15 @@ function New-ADGroupFromJSON {
     )
 
     foreach ($group in $Groups) {
+        # Debugging output
+        Write-Output "Processing group: $($group.Name)"
+        Write-Output "Description: $($group.Description)"
+        Write-Output "OU: $($group.OU)"
+        
         # Vérifier si le groupe existe déjà
-        if (-not (Get-ADGroup -Filter {Name -eq $group.Name} -ErrorAction SilentlyContinue)) {
-            New-ADGroup -Name $group.Name `
-                        -Description $group.Description `
-                        -GroupScope Global `
-                        -Path ($group.OU -or "OU=Groups,DC=example,DC=com")
+        if (-not (Get-ADGroup -Filter "Name -eq '$($group.Name)'" -ErrorAction SilentlyContinue)) {
+            $group | Format-List
+            New-ADGroup -Name $group.Name -Description $group.Description -GroupScope Global
 
             Log-Message -Message "Groupe $($group.Name) créé avec succès." -Type "Info"
         } else {
@@ -66,6 +76,7 @@ function New-ADGroupFromJSON {
         }
     }
 }
+
 
 # Fonction de log
 function Log-Message {
@@ -87,12 +98,6 @@ function Log-Message {
 }
 
 # Traitement des entrées JSON ou fichier JSON
-param (
-    [string]$u,
-    [string]$g,
-    [string]$ufile,
-    [string]$gfile
-)
 
 # Chargement des utilisateurs depuis le JSON ou le fichier
 if ($u) {
@@ -111,3 +116,5 @@ if ($g) {
     $groups = Get-Content -Path $gfile | ConvertFrom-Json
     New-ADGroupFromJSON -Groups $groups
 }
+
+
